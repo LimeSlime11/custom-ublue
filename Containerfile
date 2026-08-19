@@ -1,6 +1,7 @@
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
-COPY build_files /
+COPY build_files /build_files
+COPY features /features
 COPY system_files /system_files
 
 # Base Image
@@ -8,6 +9,7 @@ FROM ghcr.io/ublue-os/kinoite-main:latest
 
 ### 1. DISTRIBUTE SYSTEM FILES
 # Merges all 'system_files' directories across all features directly into the OS root
+COPY --from=ctx /system_files/ /
 COPY --from=ctx /features/*/system_files/ /
 
 
