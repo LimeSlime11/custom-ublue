@@ -10,7 +10,6 @@ flatpaks=(
     org.mozilla.firefox
     org.kde.kate
     org.libreoffice.LibreOffice
-    cowsay
 )
 
 for app in "${flatpaks[@]}"; do
