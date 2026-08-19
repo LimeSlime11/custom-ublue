@@ -4,16 +4,34 @@ COPY build_files /
 COPY system_files /system_files
 
 # Base Image
-FROM ghcr.io/ublue-os/bazzite:stable@sha256:b923f92d5a5b59eb992e269383eba2744601052da9d3d1595f76e79aa6ce2df0
-## Other possible base images include:
-# FROM ghcr.io/ublue-os/bazzite:testing
-# FROM ghcr.io/ublue-os/aurora:stable
-# FROM ghcr.io/ublue-os/bluefin-nvidia-open:stable
-# 
-# ... and so on, here are more base images
-# Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:44
-# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
+FROM ghcr.io/ublue-os/kinoite-main:latest
+
+### 1. DISTRIBUTE SYSTEM FILES
+# Merges all 'system_files' directories across all features directly into the OS root
+COPY --from=ctx /features/*/system_files/ /
+
+
+### 2. MODIFICATIONS & BUILD LOOP
+# Discovers all build scripts, strips the path to sort strictly by filename numbers,
+# and executes them in perfect sequential order (05, 10, 15, 16, 21, 30, etc.)
+RUN --mount=type=bind,from=ctx,source=/features,target=/tmp/features \
+    --mount=type=cache,dst=/var/cache \
+    --mount=type=cache,dst=/var/log \
+    --mount=type=tmpfs,dst=/tmp \
+    find /tmp/features/ -type f -path "*/build_files/*.sh" | awk -F/ '{print $NF, $0}' | sort -n | cut -d' ' -f2- | while read -r script; do \
+        echo "🚀 Running feature script: $(basename "$script")"; \
+        bash "$script" || exit 1; \
+    done
+
+
+### 3. GLOBAL ENVIRONMENT & PERMISSIONS ENFORCEMENTS
+# Set timezone to Copenhagen
+RUN ln -sf /usr/share/zoneinfo/Europe/Copenhagen /etc/localtime && \
+    echo "Europe/Copenhagen" > /etc/timezone
+
+# Uniformly enforce executable permissions on all target shell and python scripts
+RUN chmod 755 /usr/libexec/*.sh /usr/libexec/*.py 2>/dev/null || true
+
 
 ### [IM]MUTABLE /opt
 ## Some bootable images, like Fedora, have /opt symlinked to /var/opt, in order to
@@ -26,16 +44,10 @@ FROM ghcr.io/ublue-os/bazzite:stable@sha256:b923f92d5a5b59eb992e269383eba2744601
 
 # RUN rm /opt && mkdir /opt
 
-### MODIFICATIONS
-## make modifications desired in your image and install packages by modifying the build.sh script
-## the following RUN directive does all the things required to run "build.sh" as recommended.
+# Compile dconf configurations
+RUN dconf update
 
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    --mount=type=cache,dst=/var/cache \
-    --mount=type=cache,dst=/var/log \
-    --mount=type=tmpfs,dst=/tmp \
-    /ctx/build.sh
-
-### LINTING
-## Verify final image and contents are correct.
+    
+### 4. LINTING
+# Verify final bootc image and contents are correct
 RUN bootc container lint
