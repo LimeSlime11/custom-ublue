@@ -10,7 +10,7 @@ FROM ghcr.io/ublue-os/kinoite-main:latest
 ### 1. DISTRIBUTE SYSTEM FILES
 # Merges all 'system_files' directories across all features directly into the OS root
 COPY --from=ctx /system_files/ /
-COPY --from=ctx /features/*/system_files/ /
+#COPY --from=ctx /features/*/system_files/ /
 
 
 ### 2. MODIFICATIONS & BUILD LOOP
